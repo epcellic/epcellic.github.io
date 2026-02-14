@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta 名字="viewport" content="width=device-width, initial-scale=1.0">
-    <标题>评分可视化工具</标题>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>评分可视化工具</title>
     <!-- Tailwind CSS v3 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
@@ -13,10 +13,10 @@
     <!-- Tailwind 配置 -->
     <script>
         tailwind.config = {
-            主题: {
+            theme: {
                 extend: {
                     colors: {
-                        主要: '#3b82f6',
+                        primary: '#3b82f6',
                         secondary: '#f97316',
                         accent: '#8b5cf6',
                         neutral: '#64748b',
@@ -35,7 +35,7 @@
             }
         }
     </script>
-    <style 请键入="text/tailwindcss">
+    <style type="text/tailwindcss">
         @layer utilities {
             .glass-effect {
                 @apply bg-white bg-opacity-20 backdrop-filter backdrop-blur-lg;
@@ -73,7 +73,7 @@
         }
     </style>
 </head>
-<内容 class="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen font-sans text-neutral-dark">
+<body class="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen font-sans text-neutral-dark">
     <div class="container mx-auto px-4 py-12 max-w-6xl">
         <header class="text-center mb-12">
             <h1 class="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent mb-2">评分可视化工具</h1>
@@ -89,10 +89,10 @@
                 
                 <!-- 评分输入 -->
                 <div class="mb-8">
-                    <标签 for="rating" class="block text-lg font-medium mb-3">评分值 (0-10.0)</标签>
+                    <label for="rating" class="block text-lg font-medium mb-3">评分值 (0-10.0)</label>
                     <div class="flex items-center gap-4">
                         <input 
-                            请键入="range" 
+                            type="range" 
                             id="rating" 
                             min="0" 
                             max="10" 
@@ -101,7 +101,7 @@
                             class="rating-slider flex-grow"
                         >
                         <input 
-                            请键入="number" 
+                            type="number" 
                             id="rating-input" 
                             min="0" 
                             max="10" 
@@ -253,7 +253,7 @@
                         </div>
                     </h3>
                     <div class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
-                        <pre id="code-preview"><代码 id="html-code"><!-- 星星评分HTML代码 -->
+                        <pre id="code-preview"><code id="html-code"><!-- 星星评分HTML代码 -->
 <div class="star-rating">
     <i class="fa fa-star"></i>
     <i class="fa fa-star"></i>
@@ -261,7 +261,7 @@
     <i class="fa fa-star"></i>
     <i class="fa fa-star-o star-empty"></i>
 </div>
-<div class="text-2xl font-bold text-primary">5.0/5</div></代码></pre>
+<div class="text-2xl font-bold text-primary">5.0/5</div></code></pre>
                     </div>
                 </div>
             </div>
@@ -269,7 +269,7 @@
         
         <!-- 底部信息 -->
         <footer class="mt-16 text-center text-neutral">
-            <p>© 2026 Onethou Maker Lab | epcellic | 一个简单易用的前端小工具</p>
+            <p>© 2025 评分可视化工具 | 一个简单易用的前端小工具</p>
         </footer>
     </div>
 
