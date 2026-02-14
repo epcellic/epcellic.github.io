@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>评分可视化工具</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <!-- Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#f97316',
+                        accent: '#8b5cf6',
+                        neutral: '#64748b',
+                        'neutral-light': '#f1f5f9',
+                        'neutral-dark': '#334155'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    },
+                    boxShadow: {
+                        'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+                        'neu-up': '6px 6px 12px #d1d9e6, -6px -6px 12px #ffffff',
+                        'neu-down': 'inset 6px 6px 12px #d1d9e6, inset -6px -6px 12px #ffffff'
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .glass-effect {
+                @apply bg-white bg-opacity-20 backdrop-filter backdrop-blur-lg;
+            }
+            .neumorphic {
+                @apply bg-neutral-light rounded-xl shadow-neu-up transition-all duration-300;
+            }
+            .neumorphic-active {
+                @apply shadow-neu-down;
+            }
+            .rating-slider {
+                @apply appearance-none w-full h-2 rounded-lg bg-neutral-light outline-none;
+            }
+            .rating-slider::-webkit-slider-thumb {
+                @apply appearance-none w-6 h-6 rounded-full bg-primary cursor-pointer shadow-lg;
+            }
+            .star-rating {
+                @apply text-3xl text-yellow-400 flex items-center;
+            }
+            .star-empty {
+                @apply text-gray-300;
+            }
+            .copy-button {
+                @apply px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition-colors duration-300 flex items-center gap-2;
+            }
+            .style-option {
+                @apply p-4 rounded-lg cursor-pointer transition-all duration-300 flex flex-col items-center gap-2;
+            }
+            .style-option.active {
+                @apply bg-primary bg-opacity-10 border-2 border-primary;
+            }
+            .progress-gradient {
+                background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen font-sans text-neutral-dark">
+    <div class="container mx-auto px-4 py-12 max-w-6xl">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent mb-2">评分可视化工具</h1>
+            <p class="text-neutral text-lg">简单易用的评分可视化生成器，支持多种样式</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- 左侧控制面板 -->
+            <div class="glass-effect rounded-2xl p-6 shadow-glass border border-white border-opacity-20">
+                <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <i class="fa fa-sliders text-primary"></i>控制面板
+                </h2>
+                
+                <!-- 评分输入 -->
+                <div class="mb-8">
+                    <label for="rating" class="block text-lg font-medium mb-3">评分值 (0-10.0)</label>
+                    <div class="flex items-center gap-4">
+                        <input 
+                            type="range" 
+                            id="rating" 
+                            min="0" 
+                            max="10" 
+                            step="0.1" 
+                            value="5" 
+                            class="rating-slider flex-grow"
+                        >
+                        <input 
+                            type="number" 
+                            id="rating-input" 
+                            min="0" 
+                            max="10" 
+                            step="0.1" 
+                            value="5" 
+                            class="w-20 p-2 border border-gray-300 rounded-lg text-center"
+                        >
+                    </div>
+                </div>
+                
+                <!-- 样式选择 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium mb-4">选择评分样式</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="style-option active" data-style="stars">
+                            <i class="fa fa-star text-yellow-400 text-2xl"></i>
+                            <span>星星评分</span>
+                        </div>
+                        <div class="style-option" data-style="circle">
+                            <i class="fa fa-circle-o text-primary text-2xl"></i>
+                            <span>环形图</span>
+                        </div>
+                        <div class="style-option" data-style="progress">
+                            <i class="fa fa-tasks text-secondary text-2xl"></i>
+                            <span>进度条</span>
+                        </div>
+                        <div class="style-option" data-style="hearts">
+                            <i class="fa fa-heart text-red-500 text-2xl"></i>
+                            <span>心形评分</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 自定义选项 -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium mb-4">自定义选项</h3>
+                    
+                    <!-- 星星数量 -->
+                    <div class="mb-4" id="stars-count-container">
+                        <label for="stars-count" class="block text-sm font-medium mb-2">星星数量</label>
+                        <select id="stars-count" class="w-full p-2 border border-gray-300 rounded-lg">
+                            <option value="5">5颗星</option>
+                            <option value="10">10颗星</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 颜色选择 -->
+                    <div class="mb-4">
+                        <label for="color-theme" class="block text-sm font-medium mb-2">主题颜色</label>
+                        <select id="color-theme" class="w-full p-2 border border-gray-300 rounded-lg">
+                            <option value="default">默认配色</option>
+                            <option value="blue">蓝色主题</option>
+                            <option value="purple">紫色主题</option>
+                            <option value="orange">橙色主题</option>
+                            <option value="green">绿色主题</option>
+                        </select>
+                    </div>
+                    
+                    <!-- 动画效果 -->
+                    <div class="mb-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="animation-toggle" class="w-4 h-4" checked>
+                            <span>启用动画效果</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- 代码生成 -->
+                <div>
+                    <h3 class="text-lg font-medium mb-4">生成代码</h3>
+                    <div class="flex flex-col gap-3">
+                        <button id="copy-html" class="copy-button">
+                            <i class="fa fa-code"></i>
+                            复制HTML
+                        </button>
+                        <button id="copy-css" class="copy-button">
+                            <i class="fa fa-paint-brush"></i>
+                            复制CSS
+                        </button>
+                        <button id="copy-all" class="copy-button bg-accent hover:bg-purple-700">
+                            <i class="fa fa-copy"></i>
+                            复制全部代码
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧预览区域 -->
+            <div class="glass-effect rounded-2xl p-6 shadow-glass border border-white border-opacity-20 flex flex-col">
+                <h2 class="text-2xl font-bold mb-6 flex items-center gap-2">
+                    <i class="fa fa-eye text-primary"></i>预览效果
+                </h2>
+                
+                <!-- 预览容器 -->
+                <div class="flex-grow flex items-center justify-center p-8">
+                    <div id="preview-container" class="w-full max-w-md mx-auto">
+                        <!-- 星星评分 -->
+                        <div id="stars-preview" class="flex flex-col items-center gap-4">
+                            <div class="star-rating" id="stars-display">
+                                <i class="fa fa-star"></i>
+                                <i class="fa fa-star"></i>
+                                <i class="fa fa-star"></i>
+                                <i class="fa fa-star"></i>
+                                <i class="fa fa-star-o star-empty"></i>
+                            </div>
+                            <div class="text-2xl font-bold text-primary" id="stars-value">5.0/5</div>
+                        </div>
+                        
+                        <!-- 环形图 -->
+                        <div id="circle-preview" class="hidden flex flex-col items-center gap-4">
+                            <div class="relative w-48 h-48">
+                                <canvas id="circle-chart"></canvas>
+                                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                    <div class="text-4xl font-bold text-primary" id="circle-value">5.0</div>
+                                    <div class="text-sm text-neutral">/10.0</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 进度条 -->
+                        <div id="progress-preview" class="hidden w-full flex flex-col items-center gap-4">
+                            <div class="w-full bg-gray-200 rounded-full h-6 overflow-hidden">
+                                <div id="progress-bar" class="progress-gradient h-full rounded-full" style="width: 50%"></div>
+                            </div>
+                            <div class="text-2xl font-bold text-secondary" id="progress-value">5.0/10.0</div>
+                        </div>
+                        
+                        <!-- 心形评分 -->
+                        <div id="hearts-preview" class="hidden flex flex-col items-center gap-4">
+                            <div class="star-rating" id="hearts-display">
+                                <i class="fa fa-heart text-red-500"></i>
+                                <i class="fa fa-heart text-red-500"></i>
+                                <i class="fa fa-heart text-red-500"></i>
+                                <i class="fa fa-heart-o star-empty"></i>
+                                <i class="fa fa-heart-o star-empty"></i>
+                            </div>
+                            <div class="text-2xl font-bold text-red-500" id="hearts-value">3.0/5</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 代码预览 -->
+                <div class="mt-6 pt-6 border-t border-gray-200 border-opacity-50">
+                    <h3 class="text-lg font-medium mb-3 flex items-center justify-between">
+                        <span>代码预览</span>
+                        <div class="flex gap-2">
+                            <button id="tab-html" class="px-3 py-1 text-sm rounded-t-lg bg-primary text-white">HTML</button>
+                            <button id="tab-css" class="px-3 py-1 text-sm rounded-t-lg bg-gray-200 text-neutral">CSS</button>
+                        </div>
+                    </h3>
+                    <div class="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto text-sm">
+                        <pre id="code-preview"><code id="html-code"><!-- 星星评分HTML代码 -->
+<div class="star-rating">
+    <i class="fa fa-star"></i>
+    <i class="fa fa-star"></i>
+    <i class="fa fa-star"></i>
+    <i class="fa fa-star"></i>
+    <i class="fa fa-star-o star-empty"></i>
+</div>
+<div class="text-2xl font-bold text-primary">5.0/5</div></code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 底部信息 -->
+        <footer class="mt-16 text-center text-neutral">
+            <p>© 2025 评分可视化工具 | 一个简单易用的前端小工具</p>
+        </footer>
+    </div>
+
+    <!-- 通知提示 -->
+    <div id="notification" class="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-2">
+        <i class="fa fa-check-circle"></i>
+        <span id="notification-text">操作成功</span>
+    </div>
+
+    <script>
+        // 全局变量
+        let currentRating = 5.0;
+        let currentStyle = 'stars';
+        let starsCount = 5;
+        let colorTheme = 'default';
+        let animationEnabled = true;
+        let circleChart = null;
+        
+        // DOM元素
+        const ratingSlider = document.getElementById('rating');
+        const ratingInput = document.getElementById('rating-input');
+        const styleOptions = document.querySelectorAll('.style-option');
+        const starsCountSelect = document.getElementById('stars-count');
+        const colorThemeSelect = document.getElementById('color-theme');
+        const animationToggle = document.getElementById('animation-toggle');
+        const previewContainers = {
+            stars: document.getElementById('stars-preview'),
+            circle: document.getElementById('circle-preview'),
+            progress: document.getElementById('progress-preview'),
+            hearts: document.getElementById('hearts-preview')
+        };
+        const copyButtons = {
+            html: document.getElementById('copy-html'),
+            css: document.getElementById('copy-css'),
+            all: document.getElementById('copy-all')
+        };
+        const codeTabs = {
+            html: document.getElementById('tab-html'),
+            css: document.getElementById('tab-css')
+        };
+        const codePreview = document.getElementById('code-preview');
+        const htmlCode = document.getElementById('html-code');
+        const notification = document.getElementById('notification');
+        const notificationText = document.getElementById('notification-text');
+        
+        // 初始化
+        function init() {
+            // 初始化事件监听
+            ratingSlider.addEventListener('input', handleRatingChange);
+            ratingInput.addEventListener('input', handleRatingInputChange);
+            styleOptions.forEach(option => {
+                option.addEventListener('click', () => handleStyleChange(option.dataset.style));
+            });
+            starsCountSelect.addEventListener('change', handleStarsCountChange);
+            colorThemeSelect.addEventListener('change', handleColorThemeChange);
+            animationToggle.addEventListener('change', handleAnimationToggle);
+            
+            copyButtons.html.addEventListener('click', () => copyCode('html'));
+            copyButtons.css.addEventListener('click', () => copyCode('css'));
+            copyButtons.all.addEventListener('click', () => copyCode('all'));
+            
+            codeTabs.html.addEventListener('click', () => switchCodeTab('html'));
+            codeTabs.css.addEventListener('click', () => switchCodeTab('css'));
+            
+            // 初始化环形图
+            initCircleChart();
+            
+            // 初始化预览
+            updatePreview();
+            updateCodePreview();
+        }
+        
+        // 处理评分滑块变化
+        function handleRatingChange() {
+            currentRating = parseFloat(ratingSlider.value);
+            ratingInput.value = currentRating;
+            updatePreview();
+            updateCodePreview();
+        }
+        
+        // 处理评分输入框变化
+        function handleRatingInputChange() {
+            let value = parseFloat(ratingInput.value);
+            if (isNaN(value)) value = 0;
+            if (value < 0) value = 0;
+            if (value > 10) value = 10;
+            
+            currentRating = value;
+            ratingSlider.value = currentRating;
+            updatePreview();
+            updateCodePreview();
+        }
+        
+        // 处理样式切换
+        function handleStyleChange(style) {
+            currentStyle = style;
+            
+            // 更新样式选项UI
+            styleOptions.forEach(option => {
+                if (option.dataset.style === style) {
+                    option.classList.add('active');
+                } else {
+                    option.classList.remove('active');
+                }
+            });
+            
+            // 显示对应的预览
+            Object.keys(previewContainers).forEach(key => {
+                if (key === style) {
+                    previewContainers[key].classList.remove('hidden');
+                } else {
+                    previewContainers[key].classList.add('hidden');
+                }
+            });
+            
+            // 特殊处理环形图
+            if (style === 'circle') {
+                updateCircleChart();
+            }
+            
+            // 更新代码预览
+            updateCodePreview();
+            
+            // 显示/隐藏星星数量选项
+            if (style === 'stars' || style === 'hearts') {
+                document.getElementById('stars-count-container').classList.remove('hidden');
+            } else {
+                document.getElementById('stars-count-container').classList.add('hidden');
+            }
+        }
+        
+        // 处理星星数量变化
+        function handleStarsCountChange() {
+            starsCount = parseInt(starsCountSelect.value);
+            updatePreview();
+            updateCodePreview();
+        }
+        
+        // 处理颜色主题变化
+        function handleColorThemeChange() {
+            colorTheme = colorThemeSelect.value;
+            updatePreview();
+            updateCodePreview();
+        }
+        
+        // 处理动画开关
+        function handleAnimationToggle() {
+            animationEnabled = animationToggle.checked;
+            updatePreview();
+            updateCodePreview();
+        }
+        
+        // 更新预览
+        function updatePreview() {
+            switch (currentStyle) {
+                case 'stars':
+                    updateStarsPreview();
+                    break;
+                case 'circle':
+                    updateCircleChart();
+                    break;
+                case 'progress':
+                    updateProgressPreview();
+                    break;
+                case 'hearts':
+                    updateHeartsPreview();
+                    break;
+            }
+        }
+        
+        // 更新星星评分预览
+        function updateStarsPreview() {
+            const starsDisplay = document.getElementById('stars-display');
+            const starsValue = document.getElementById('stars-value');
+            
+            // 计算星星数量
+            const maxRating = starsCount;
+            const normalizedRating = (currentRating / 10) * maxRating;
+            const fullStars = Math.floor(normalizedRating);
+            const hasHalfStar = normalizedRating % 1 >= 0.5;
+            const emptyStars = maxRating - fullStars - (hasHalfStar ? 1 : 0);
+            
+            // 生成星星HTML
+            let starsHTML = '';
+            
+            // 全星
+            for (let i = 0; i < fullStars; i++) {
+                starsHTML += '<i class="fa fa-star"></i>';
+            }
+            
+            // 半星
+            if (hasHalfStar) {
+                starsHTML += '<i class="fa fa-star-half-o"></i>';
+            }
+            
+            // 空星
+            for (let i = 0; i < emptyStars; i++) {
+                starsHTML += '<i class="fa fa-star-o star-empty"></i>';
+            }
+            
+            starsDisplay.innerHTML = starsHTML;
+            starsValue.textContent = `${currentRating.toFixed(1)}/${maxRating}`;
+            
+            // 应用颜色主题
+            applyColorTheme(starsDisplay, starsValue, 'stars');
+        }
+        
+        // 初始化环形图
+        function initCircleChart() {
+            const ctx = document.getElementById('circle-chart').getContext('2d');
+            circleChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    datasets: [{
+                        data: [50, 50],
+                        backgroundColor: [
+                            getThemeColor('primary'),
+                            '#e2e8f0'
+                        ],
+                        borderWidth: 0,
+                        cutout: '80%'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    },
+                    animation: {
+                        animateRotate: animationEnabled,
+                        animateScale: animationEnabled
+                    }
+                }
+            });
+            
+            // 更新环形图值显示
+            document.getElementById('circle-value').textContent = currentRating.toFixed(1);
+        }
+        
+        // 更新环形图
+        function updateCircleChart() {
+            if (circleChart) {
+                const percentage = (currentRating / 10) * 100;
+                
+                // 更新图表数据
+                circleChart.data.datasets[0].data = [percentage, 100 - percentage];
+                
+                // 应用颜色主题
+                circleChart.data.datasets[0].backgroundColor[0] = getThemeColor('primary');
+                
+                // 更新动画设置
+                circleChart.options.animation.animateRotate = animationEnabled;
+                circleChart.options.animation.animateScale = animationEnabled;
+                
+                circleChart.update();
+                
+                // 更新值显示
+                document.getElementById('circle-value').textContent = currentRating.toFixed(1);
+            }
+        }
+        
+        // 更新进度条预览
+        function updateProgressPreview() {
+            const progressBar = document.getElementById('progress-bar');
+            const progressValue = document.getElementById('progress-value');
+            
+            const percentage = (currentRating / 10) * 100;
+            
+            // 应用过渡动画
+            if (animationEnabled) {
+                progressBar.style.transition = 'width 0.5s ease';
+            } else {
+                progressBar.style.transition = 'none';
+            }
+            
+            progressBar.style.width = `${percentage}%`;
+            progressValue.textContent = `${currentRating.toFixed(1)}/10.0`;
+            
+            // 应用颜色主题
+            applyProgressBarTheme(progressBar);
+            applyTextColor(progressValue, 'secondary');
+        }
+        
+        // 更新心形评分预览
+        function updateHeartsPreview() {
+            const heartsDisplay = document.getElementById('hearts-display');
+            const heartsValue = document.getElementById('hearts-value');
+            
+            // 计算心形数量
+            const maxRating = starsCount;
+            const normalizedRating = (currentRating / 10) * maxRating;
+            const fullHearts = Math.floor(normalizedRating);
+            const hasHalfHeart = normalizedRating % 1 >= 0.5;
+            const emptyHearts = maxRating - fullHearts - (hasHalfHeart ? 1 : 0);
+            
+            // 生成心形HTML
+            let heartsHTML = '';
+            
+            // 全心
+            for (let i = 0; i < fullHearts; i++) {
+                heartsHTML += '<i class="fa fa-heart"></i>';
+            }
+            
+            // 半心
+            if (hasHalfHeart) {
+                heartsHTML += '<i class="fa fa-heart-half-o"></i>';
+            }
+            
+            // 空心
+            for (let i = 0; i < emptyHearts; i++) {
+                heartsHTML += '<i class="fa fa-heart-o star-empty"></i>';
+            }
+            
+            heartsDisplay.innerHTML = heartsHTML;
+            heartsValue.textContent = `${currentRating.toFixed(1)}/${maxRating}`;
+            
+            // 应用颜色主题
+            applyColorTheme(heartsDisplay, heartsValue, 'hearts');
+        }
+        
+        // 应用颜色主题
+        function applyColorTheme(displayElement, valueElement, type) {
+            const color = getThemeColor(type === 'hearts' ? 'secondary' : 'primary');
+            
+            // 应用到填充元素
+            const filledElements = displayElement.querySelectorAll(type === 'hearts' ? '.fa-heart' : '.fa-star');
+            filledElements.forEach(el => {
+                el.style.color = color;
+            });
+            
+            // 应用到半填充元素
+            const halfElements = displayElement.querySelectorAll(type === 'hearts' ? '.fa-heart-half-o' : '.fa-star-half-o');
+            halfElements.forEach(el => {
+                el.style.color = color;
+            });
+            
+            // 应用到文本
+            applyTextColor(valueElement, type === 'hearts' ? 'secondary' : 'primary');
+        }
+        
+        // 应用进度条主题
+        function applyProgressBarTheme(progressBar) {
+            let gradient;
+            
+            switch (colorTheme) {
+                case 'blue':
+                    gradient = 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)';
+                    break;
+                case 'purple':
+                    gradient = 'linear-gradient(90deg, #8b5cf6 0%, #7c3aed 100%)';
+                    break;
+                case 'orange':
+                    gradient = 'linear-gradient(90deg, #f97316 0%, #ea580c 100%)';
+                    break;
+                case 'green':
+                    gradient = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
+                    break;
+                default:
+                    gradient = 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)';
+            }
+            
+            progressBar.style.background = gradient;
+        }
+        
+        // 应用文本颜色
+        function applyTextColor(element, type) {
+            const color = getThemeColor(type);
+            element.style.color = color;
+        }
+        
+        // 获取主题颜色
+        function getThemeColor(type) {
+            switch (colorTheme) {
+                case 'blue':
+                    return type === 'primary' ? '#3b82f6' : '#2563eb';
+                case 'purple':
+                    return type === 'primary' ? '#8b5cf6' : '#7c3aed';
+                case 'orange':
+                    return type === 'primary' ? '#f97316' : '#ea580c';
+                case 'green':
+                    return type === 'primary' ? '#10b981' : '#059669';
+                default:
+                    return type === 'primary' ? '#3b82f6' : 
+                           type === 'secondary' ? '#f97316' : 
+                           type === 'accent' ? '#8b5cf6' : 
+                           type === 'hearts' ? '#ef4444' : '#3b82f6';
+            }
+        }
+        
+        // 更新代码预览
+        function updateCodePreview() {
+            let html = '';
+            let css = '';
+            
+            switch (currentStyle) {
+                case 'stars':
+                    html = generateStarsHTML();
+                    css = generateStarsCSS();
+                    break;
+                case 'circle':
+                    html = generateCircleHTML();
+                    css = generateCircleCSS();
+                    break;
+                case 'progress':
+                    html = generateProgressHTML();
+                    css = generateProgressCSS();
+                    break;
+                case 'hearts':
+                    html = generateHeartsHTML();
+                    css = generateHeartsCSS();
+                    break;
+            }
+            
+            htmlCode.textContent = html;
+            
+            // 存储代码以便复制
+            htmlCode.dataset.html = html;
+            htmlCode.dataset.css = css;
+            htmlCode.dataset.all = html + '\n\n/* CSS代码 */\n' + css;
+        }
+        
+        // 生成星星评分HTML
+        function generateStarsHTML() {
+            const maxRating = starsCount;
+            const normalizedRating = (currentRating / 10) * maxRating;
+            const fullStars = Math.floor(normalizedRating);
+            const hasHalfStar = normalizedRating % 1 >= 0.5;
+            const emptyStars = maxRating - fullStars - (hasHalfStar ? 1 : 0);
+            
+            let starsHTML = '';
+            
+            for (let i = 0; i < fullStars; i++) {
+                starsHTML += '    <i class="fa fa-star"></i>\n';
+            }
+            
+            if (hasHalfStar) {
+                starsHTML += '    <i class="fa fa-star-half-o"></i>\n';
+            }
+            
+            for (let i = 0; i < emptyStars; i++) {
+                starsHTML += '    <i class="fa fa-star-o star-empty"></i>\n';
+            }
+            
+            return `<!-- 星星评分HTML代码 -->
+<div class="star-rating">
+${starsHTML}</div>
+<div class="text-2xl font-bold text-primary">${currentRating.toFixed(1)}/${maxRating}</div>`;
+        }
+        
+        // 生成星星评分CSS
+        function generateStarsCSS() {
+            const color = getThemeColor('primary');
+            
+            return `.star-rating {
+    font-size: 2rem;
+    color: ${color};
+    display: flex;
+    align-items: center;
+}
+
+.star-empty {
+    color: #e2e8f0;
+}
+
+.text-primary {
+    color: ${color};
+}`;
+        }
+        
+        // 生成环形图HTML
+        function generateCircleHTML() {
+            return `<!-- 环形图HTML代码 -->
+<div class="relative w-48 h-48">
+    <canvas id="rating-chart"></canvas>
+    <div class="absolute inset-0 flex flex-col items-center justify-center">
+        <div class="text-4xl font-bold text-primary">${currentRating.toFixed(1)}</div>
+        <div class="text-sm text-neutral">/10.0</div>
+    </div>
+</div>`;
+        }
+        
+        // 生成环形图CSS
+        function generateCircleCSS() {
+            return `/* 环形图CSS代码 */
+.rating-chart-container {
+    position: relative;
+    width: 192px;
+    height: 192px;
+}
+
+.text-primary {
+    color: ${getThemeColor('primary')};
+}
+
+.text-neutral {
+    color: #64748b;
+}`;
+        }
+        
+        // 生成进度条HTML
+        function generateProgressHTML() {
+            const percentage = (currentRating / 10) * 100;
+            
+            return `<!-- 进度条HTML代码 -->
+<div class="w-full bg-gray-200 rounded-full h-6 overflow-hidden">
+    <div class="progress-gradient h-full rounded-full" style="width: ${percentage}%"></div>
+</div>
+<div class="text-2xl font-bold text-secondary">${currentRating.toFixed(1)}/10.0</div>`;
+        }
+        
+        // 生成进度条CSS
+        function generateProgressCSS() {
+            let gradient;
+            
+            switch (colorTheme) {
+                case 'blue':
+                    gradient = 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)';
+                    break;
+                case 'purple':
+                    gradient = 'linear-gradient(90deg, #8b5cf6 0%, #7c3aed 100%)';
+                    break;
+                case 'orange':
+                    gradient = 'linear-gradient(90deg, #f97316 0%, #ea580c 100%)';
+                    break;
+                case 'green':
+                    gradient = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
+                    break;
+                default:
+                    gradient = 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)';
+            }
+            
+            return `/* 进度条CSS代码 */
+.progress-gradient {
+    background: ${gradient};
+    transition: width 0.5s ease;
+}
+
+.text-secondary {
+    color: ${getThemeColor('secondary')};
+}`;
+        }
+        
+        // 生成心形评分HTML
+        function generateHeartsHTML() {
+            const maxRating = starsCount;
+            const normalizedRating = (currentRating / 10) * maxRating;
+            const fullHearts = Math.floor(normalizedRating);
+            const hasHalfHeart = normalizedRating % 1 >= 0.5;
+            const emptyHearts = maxRating - fullHearts - (hasHalfHeart ? 1 : 0);
+            
+            let heartsHTML = '';
+            
+            for (let i = 0; i < fullHearts; i++) {
+                heartsHTML += '    <i class="fa fa-heart"></i>\n';
+            }
+            
+            if (hasHalfHeart) {
+                heartsHTML += '    <i class="fa fa-heart-half-o"></i>\n';
+            }
+            
+            for (let i = 0; i < emptyHearts; i++) {
+                heartsHTML += '    <i class="fa fa-heart-o star-empty"></i>\n';
+            }
+            
+            return `<!-- 心形评分HTML代码 -->
+<div class="star-rating">
+${heartsHTML}</div>
+<div class="text-2xl font-bold text-red-500">${currentRating.toFixed(1)}/${maxRating}</div>`;
+        }
+        
+        // 生成心形评分CSS
+        function generateHeartsCSS() {
+            const color = getThemeColor('hearts');
+            
+            return `/* 心形评分CSS代码 */
+.star-rating {
+    font-size: 2rem;
+    color: ${color};
+    display: flex;
+    align-items: center;
+}
+
+.star-empty {
+    color: #e2e8f0;
+}`;
+        }
+        
+        // 复制代码
+        function copyCode(type) {
+            let code = '';
+            
+            switch (type) {
+                case 'html':
+                    code = htmlCode.dataset.html;
+                    break;
+                case 'css':
+                    code = htmlCode.dataset.css;
+                    break;
+                case 'all':
+                    code = htmlCode.dataset.all;
+                    break;
+            }
+            
+            navigator.clipboard.writeText(code).then(() => {
+                showNotification(`已复制${type === 'html' ? 'HTML' : type === 'css' ? 'CSS' : '全部'}代码到剪贴板`);
+            }).catch(err => {
+                console.error('复制失败:', err);
+                showNotification('复制失败，请手动复制', false);
+            });
+        }
+        
+        // 切换代码标签
+        function switchCodeTab(tab) {
+            if (tab === 'html') {
+                codeTabs.html.classList.add('bg-primary', 'text-white');
+                codeTabs.html.classList.remove('bg-gray-200', 'text-neutral');
+                codeTabs.css.classList.add('bg-gray-200', 'text-neutral');
+                codeTabs.css.classList.remove('bg-primary', 'text-white');
+                
+                htmlCode.textContent = htmlCode.dataset.html;
+            } else {
+                codeTabs.css.classList.add('bg-primary', 'text-white');
+                codeTabs.css.classList.remove('bg-gray-200', 'text-neutral');
+                codeTabs.html.classList.add('bg-gray-200', 'text-neutral');
+                codeTabs.html.classList.remove('bg-primary', 'text-white');
+                
+                htmlCode.textContent = htmlCode.dataset.css;
+            }
+        }
+        
+        // 显示通知
+        function showNotification(message, isSuccess = true) {
+            notificationText.textContent = message;
+            
+            if (isSuccess) {
+                notification.classList.remove('bg-red-500');
+                notification.classList.add('bg-green-500');
+                notification.querySelector('i').className = 'fa fa-check-circle';
+            } else {
+                notification.classList.remove('bg-green-500');
+                notification.classList.add('bg-red-500');
+                notification.querySelector('i').className = 'fa fa-exclamation-circle';
+            }
+            
+            notification.classList.remove('translate-y-20', 'opacity-0');
+            
+            setTimeout(() => {
+                notification.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+        
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
